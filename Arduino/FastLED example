@@ -1,0 +1,214 @@
+#include <FastLED.h>
+
+#define NUM_LEDS 12 // how many pixels
+#define LED_PIN 6 // what pin
+
+// MIDI Notes to MIDI noteNumber
+const int cSharp_2 = 1;  // C#-2
+const int D_2      = 2;  // D-2
+const int dSharp_2 = 3;  // D#-2
+const int E_2      = 4;  // E-2
+const int F_2      = 5;  // F-2
+const int fSharp_2 = 6;  // F#-2
+const int G_2      = 7;  // G-2
+const int gSharp_2 = 8;  // G#-2
+const int A_2      = 9;  // A-2
+const int aSharp_2 = 10; // A#-2
+const int B_2      = 11; // B-2
+const int C_1      = 12; // C-1
+const int cSharp_1 = 13; // C#-1
+const int D_1      = 14; // D-1
+const int dSharp_1 = 15; // D#-1
+const int E_1      = 16; // E-1
+const int F_1      = 17; // F-1
+const int fSharp_1 = 18; // C#-1
+const int G_1      = 19; // G-1
+const int gSharp_1 = 20; // G#-1
+
+// bpm changes
+const int F_8 = 125;// F8
+const int G_8      = 127;// G8
+
+// PALETTES
+uint8_t paletteIndex = 0;
+
+CRGBPalette16 purplePalette = CRGBPalette16 (
+  CRGB::DarkViolet,
+  CRGB::DarkViolet,
+  CRGB::DarkViolet,
+  CRGB::DarkViolet,
+  
+  CRGB::Magenta,
+  CRGB::Magenta,
+  CRGB::Linen,
+  CRGB::Linen,
+  
+  CRGB::Magenta,
+  CRGB::Magenta,
+  CRGB::DarkViolet,
+  CRGB::DarkViolet,
+  
+  CRGB::DarkViolet,
+  CRGB::DarkViolet,
+  CRGB::Linen,
+  CRGB::Linen
+);
+  
+CRGBPalette16 myPal = purplePalette;
+
+// processing data in
+char serialData;
+
+// saturation and hue parameters
+uint8_t fullVal = 255;    // for functions requiring full HSV Value (going light to dark)
+uint8_t hue = 0;          // for functions requiring a start at the beginning hue value in HSV
+
+//object
+CRGB leds[NUM_LEDS];
+
+// song BPM in Q8.8 format (actual BPM of the song multiplied by 256)
+float bpm = 30;           // default BPM if none is specified
+float FLOURISH = 39936;   // BPM of 156 * 256
+float HOME_AWAY = 51200;  // BPM of 200 * 256 
+
+// the setup function runs once when you press reset or power the board
+void setup() {
+    
+  // FAST LED INIT
+  FastLED.addLeds<WS2812B, LED_PIN, GRB>(leds, NUM_LEDS);
+  FastLED.setBrightness(50);
+  FastLED.setCorrection(TypicalPixelString);
+
+  Serial.begin(9600);
+  
+}
+
+// the loop function runs over and over again forever
+void loop() {
+
+  if(Serial.available()){
+    serialData = Serial.read();
+  }
+
+// write color to all pixels
+  
+    if(serialData == cSharp_2){
+      // turn all lights green
+      fill_solid(leds, NUM_LEDS, CRGB::Green);
+    } 
+    else if(serialData == D_2){
+      // turn all lights blue
+      fill_solid(leds, NUM_LEDS, CRGB::Blue);
+    } 
+    else if(serialData == dSharp_2){
+      // turn all lights red
+      fill_solid(leds, NUM_LEDS, CRGB::Red);
+    }
+    else if(serialData == E_2){
+      // turn all lights bright white
+      fill_solid(leds, NUM_LEDS, CRGB::White);
+    }
+    else if(serialData == F_2){
+      // White Fade
+      // turn all the lights bright white
+      for(int i = 0; i < NUM_LEDS; i++){
+        leds[i] = CHSV(0, 0, fullVal);
+      }
+
+      // fade saturation from 255 to 0 by 1 every 5 milliseconds
+      EVERY_N_MILLISECONDS(5){
+        if(fullVal != 0){
+          fullVal--;
+        }
+      }
+      
+    }
+    else if(serialData == fSharp_2){
+
+      // White flashing chase
+      EVERY_N_MILLISECONDS(50){
+        // create new white pixel for led[0]
+        leds[0] = CHSV(0, 0, random8());
+
+        for(int i = NUM_LEDS - 1; i > 0; i--){
+          leds[i] = leds[i - 1]; 
+        }
+      }      
+    }  
+    else if(serialData == G_2){
+
+      // TWINKLING PURPLE PALETTE
+      
+      // switch on an LED at random, choosing a random color from the palette
+      EVERY_N_MILLISECONDS(50){
+        leds[random8(0, NUM_LEDS - 1)] = ColorFromPalette(myPal, random8(), 255, LINEARBLEND);
+      }
+      
+      // fade all leds down by 1 in brightness each time this is called
+      fadeToBlackBy(leds, NUM_LEDS, 1);
+     
+    }
+    else if(serialData == gSharp_2){
+
+      // moving light left to right
+      uint8_t sinBeat  = beatsin8(bpm, 0, NUM_LEDS - 1, 0, 0);
+      uint8_t sinBeat2 = beatsin8(bpm, 0, NUM_LEDS - 1, 0, 127);
+      leds[sinBeat]  = CRGB::White;
+      leds[sinBeat2] = CRGB::White;
+      fadeToBlackBy(leds, NUM_LEDS, 10);
+     
+    }
+    else if(serialData == A_2){
+
+      // pulsing purple
+      uint8_t bright = beatsin8(bpm, 50, 255, 0, 0);
+    
+      for(int i = 0; i < NUM_LEDS; i++){
+        leds[i] = CHSV(200, bright, bright);
+      }
+     
+    }
+    else if(serialData == aSharp_2){
+
+      // scrolling rainbow
+      uint16_t beatA = beatsin16(30, 0, 255);
+      uint16_t beatB = beatsin16(20, 0, 255);
+      fill_rainbow(leds, NUM_LEDS, (beatA+beatB)/2, 8);
+     
+    }
+    else if(serialData == B_2){
+
+      // pulsing white
+      uint8_t bright = beatsin8(bpm, 50, 255, 0, 0);
+    
+      for(int i = 0; i < NUM_LEDS; i++){
+        leds[i] = CHSV(0, 0, bright);
+      }
+     
+    }
+
+
+    // BPM CHANGE MIDI NOTES
+    else if(serialData == G_8){                               // IN THIS SECTION, MIDI NOTES WILL CHANGE THE BPM PARAMETERS OF THE 
+                                                              // BEATSIN8/16/88 FUNCTIONS THAT MOVE THE LED's ACROSS THE STRIP.  
+      // change BPM for song FLOURISH                         // THE TWO EXAMPLES LISTED ARE BPM's FOR SONGS FROM MY BAND.
+      bpm = FLOURISH;                                         // 
+    }                                                         // ACCURATE BPM IN FASTLED IS CALCULATED BY MULTIPLYING YOUR SONGS BPM BY 256
+    else if(serialData == F_8){                               // FLOURISH IS AT A BPM OF 156 SO THE BPM IN THE FUNCTION ON gSharp_2
+      // change BPM for song HOME AWAY FROM HOME              // WILL BE SET AT 39936, TRIGGERING BEATSIN8 FUNCTIONED LIGHTS AT A BPM OF 156.
+      bpm = HOME_AWAY; 
+    } 
+
+    // reset some values
+    if(!serialData) {
+      fullVal = 255;
+      fill_solid(leds, NUM_LEDS, CRGB::Black);
+    }
+
+    // ///////// //
+    // TEST AREA //
+    // ///////// // 
+
+    FastLED.show();
+
+}
